@@ -1,0 +1,820 @@
+{%- comment -%}
+  HT - WhatsApp Chat Button (OS 2.0 Section)
+  Zero dependencies, scoped via #ht-wa-{{ section.id }} and inline CSS variables.
+{%- endcomment -%}
+
+{%- liquid
+  assign should_hide = false
+
+  case request.page_type
+    when 'index'
+      if section.settings.hide_on_home
+        assign should_hide = true
+      endif
+    when 'product'
+      if section.settings.hide_on_product
+        assign should_hide = true
+      endif
+    when 'collection'
+      if section.settings.hide_on_collection
+        assign should_hide = true
+      endif
+    when 'cart'
+      if section.settings.hide_on_cart
+        assign should_hide = true
+      endif
+    when 'blog', 'article'
+      if section.settings.hide_on_blog
+        assign should_hide = true
+      endif
+    when 'page'
+      if section.settings.hide_on_page
+        assign should_hide = true
+      endif
+  endcase
+
+  if section.settings.show_on_desktop == false and section.settings.show_on_mobile == false
+    assign should_hide = true
+  endif
+
+  assign raw_phone = section.settings.phone_number | default: '' | strip
+  assign clean_phone = raw_phone | remove: '+' | remove: ' ' | remove: '-' | remove: '(' | remove: ')' | strip
+
+  assign country_code = section.settings.default_country_code | remove: '+' | strip
+  if country_code != blank and clean_phone.size == 10
+    assign clean_phone = country_code | append: clean_phone
+  endif
+
+  assign current_page_url = canonical_url
+  if current_page_url == blank
+    assign current_page_url = request.origin | append: request.path
+  endif
+
+  if product != blank
+    assign resolved_product_title = product.title
+    assign resolved_product_url = request.origin | append: product.url
+    assign raw_message = section.settings.prefill_message | default: ''
+  else
+    assign resolved_product_title = page_title | default: shop.name
+    assign resolved_product_url = current_page_url
+    assign raw_message = section.settings.general_message | default: ''
+  endif
+
+  assign processed_message = raw_message | replace: '{product_title}', resolved_product_title | replace: '{product_url}', resolved_product_url | replace: '{page_url}', current_page_url | strip
+  assign encoded_message = processed_message | url_encode
+
+  assign wa_url = 'https://wa.me/' | append: clean_phone
+  if encoded_message != blank
+    assign wa_url = wa_url | append: '?text=' | append: encoded_message
+  endif
+
+  assign tooltip_text = section.settings.tooltip_text | strip
+  assign aria_label_text = section.settings.aria_label | strip | default: 'Chat with us on WhatsApp'
+
+  if section.settings.button_shape == 'circle'
+    assign border_radius = '50%'
+  else
+    assign border_radius = '14px'
+  endif
+-%}
+
+{%- unless should_hide -%}
+  {%- if clean_phone != blank -%}
+    <div
+      id="ht-wa-{{ section.id }}"
+      class="ht-wa"
+      data-ht-wa-section="{{ section.id }}"
+      data-position="{{ section.settings.position }}"
+      data-desktop="{{ section.settings.show_on_desktop }}"
+      data-mobile="{{ section.settings.show_on_mobile }}"
+      data-delay="{{ section.settings.appear_delay }}"
+      data-entrance="{{ section.settings.enable_entrance }}"
+      data-pulse="{{ section.settings.enable_pulse }}"
+      data-shadow="{{ section.settings.enable_shadow }}"
+      data-tooltip-mode="{{ section.settings.tooltip_behavior }}"
+      data-tooltip-duration="{{ section.settings.tooltip_auto_hide_seconds }}"
+      data-ready="{% if section.settings.appear_delay == 0 and section.settings.enable_entrance == false %}true{% else %}false{% endif %}"
+      style="
+        --ht-wa-size: {{ section.settings.button_size }}px;
+        --ht-wa-radius: {{ border_radius }};
+        --ht-wa-bg: {{ section.settings.bg_color }};
+        --ht-wa-icon: {{ section.settings.icon_color }};
+        --ht-wa-bottom-desktop: {{ section.settings.bottom_offset_desktop }}px;
+        --ht-wa-side-desktop: {{ section.settings.side_offset_desktop }}px;
+        --ht-wa-bottom-mobile: {{ section.settings.bottom_offset_mobile }}px;
+        --ht-wa-side-mobile: {{ section.settings.side_offset_mobile }}px;
+        --ht-wa-z-index: {{ section.settings.z_index }};
+      "
+    >
+      <a
+        href="{{ wa_url }}"
+        class="ht-wa__link"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="{{ aria_label_text | escape }}"
+      >
+        {%- if tooltip_text != blank and section.settings.tooltip_behavior != 'none' -%}
+          <span
+            class="ht-wa__tooltip"
+            data-ht-wa-tooltip
+            aria-hidden="true"
+          >
+            {{- tooltip_text | escape -}}
+          </span>
+        {%- endif -%}
+
+        <span class="ht-wa__btn">
+          <svg
+            class="ht-wa__icon"
+            viewBox="0 0 24 24"
+            width="28"
+            height="28"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path
+              fill="currentColor"
+              d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.36 3.45 16.86L2.05 22L7.3 20.62C8.75 21.41 10.38 21.83 12.04 21.83C17.5 21.83 21.95 17.38 21.95 11.92C21.95 9.27 20.92 6.78 19.05 4.91C17.18 3.03 14.69 2 12.04 2ZM12.05 3.67C14.25 3.67 16.31 4.53 17.87 6.09C19.42 7.65 20.28 9.72 20.28 11.92C20.28 16.46 16.58 20.15 12.04 20.15C10.56 20.15 9.11 19.76 7.85 19L7.55 18.83L4.43 19.65L5.26 16.61L5.06 16.29C4.24 15 3.8 13.47 3.8 11.91C3.81 7.37 7.5 3.67 12.05 3.67ZM8.53 7.33C8.37 7.33 8.1 7.39 7.87 7.64C7.65 7.89 7 8.5 7 9.71C7 10.93 7.89 12.1 8 12.27C8.14 12.44 9.76 14.94 12.25 16.02C12.84 16.27 13.3 16.42 13.66 16.53C14.25 16.72 14.79 16.69 15.22 16.63C15.7 16.56 16.68 16.03 16.89 15.45C17.1 14.87 17.1 14.38 17.04 14.27C16.97 14.17 16.81 14.11 16.56 14C16.31 13.86 15.09 13.26 14.87 13.18C14.64 13.1 14.5 13.06 14.31 13.3C14.15 13.55 13.67 14.11 13.53 14.27C13.38 14.44 13.24 14.46 13 14.34C12.74 14.21 11.94 13.95 11 13.11C10.26 12.45 9.77 11.64 9.62 11.39C9.5 11.15 9.61 11 9.73 10.89C9.84 10.78 10 10.6 10.1 10.45C10.23 10.31 10.27 10.2 10.35 10.04C10.43 9.87 10.39 9.73 10.33 9.61C10.27 9.5 9.77 8.26 9.56 7.77C9.36 7.29 9.16 7.35 9 7.34C8.86 7.34 8.7 7.33 8.53 7.33Z"
+            />
+          </svg>
+          {%- if section.settings.show_online_dot -%}
+            <span class="ht-wa__dot" aria-hidden="true"></span>
+          {%- endif -%}
+        </span>
+      </a>
+      <noscript>
+        <style>
+          #ht-wa-{{ section.id }} {
+            opacity: 1 !important;
+            visibility: visible !important;
+            transform: none !important;
+            pointer-events: auto !important;
+          }
+        </style>
+      </noscript>
+    </div>
+  {%- elsif request.design_mode -%}
+    <div
+      id="ht-wa-{{ section.id }}"
+      class="ht-wa ht-wa--placeholder"
+      data-position="{{ section.settings.position }}"
+      style="
+        --ht-wa-bottom-desktop: {{ section.settings.bottom_offset_desktop }}px;
+        --ht-wa-side-desktop: {{ section.settings.side_offset_desktop }}px;
+        --ht-wa-bottom-mobile: {{ section.settings.bottom_offset_mobile }}px;
+        --ht-wa-side-mobile: {{ section.settings.side_offset_mobile }}px;
+        --ht-wa-z-index: {{ section.settings.z_index }};
+      "
+    >
+      <div class="ht-wa__placeholder-box" role="status">
+        <strong>WhatsApp Chat:</strong> Enter a phone number in section settings to activate.
+      </div>
+    </div>
+  {%- endif -%}
+{%- endunless -%}
+
+{% stylesheet %}
+  [id^="ht-wa-"].ht-wa {
+    position: fixed;
+    bottom: calc(var(--ht-wa-bottom-mobile, 16px) + env(safe-area-inset-bottom, 0px));
+    z-index: var(--ht-wa-z-index, 999);
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    pointer-events: none;
+  }
+
+  [id^="ht-wa-"].ht-wa[data-position="right"] {
+    inset-inline-end: var(--ht-wa-side-mobile, 16px);
+  }
+
+  [id^="ht-wa-"].ht-wa[data-position="left"] {
+    inset-inline-start: var(--ht-wa-side-mobile, 16px);
+  }
+
+  @media screen and (min-width: 750px) {
+    [id^="ht-wa-"].ht-wa {
+      bottom: calc(var(--ht-wa-bottom-desktop, 24px) + env(safe-area-inset-bottom, 0px));
+    }
+
+    [id^="ht-wa-"].ht-wa[data-position="right"] {
+      inset-inline-end: var(--ht-wa-side-desktop, 24px);
+    }
+
+    [id^="ht-wa-"].ht-wa[data-position="left"] {
+      inset-inline-start: var(--ht-wa-side-desktop, 24px);
+    }
+  }
+
+  /* Viewport Visibility Controls */
+  @media screen and (max-width: 749px) {
+    [id^="ht-wa-"].ht-wa[data-mobile="false"] {
+      display: none !important;
+    }
+  }
+
+  @media screen and (min-width: 750px) {
+    [id^="ht-wa-"].ht-wa[data-desktop="false"] {
+      display: none !important;
+    }
+  }
+
+  /* Delay & Entrance Transitions */
+  [id^="ht-wa-"].ht-wa[data-ready="false"] {
+    opacity: 0;
+    visibility: hidden;
+  }
+
+  [id^="ht-wa-"].ht-wa[data-entrance="true"][data-ready="false"] {
+    transform: translateY(16px);
+  }
+
+  [id^="ht-wa-"].ht-wa[data-ready="true"] {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+    transition:
+      opacity 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+      visibility 0.35s;
+  }
+
+  /* Link & Layout */
+  [id^="ht-wa-"] .ht-wa__link {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+    color: inherit;
+    pointer-events: auto;
+    border-radius: var(--ht-wa-radius, 50%);
+    outline: none;
+  }
+
+  [id^="ht-wa-"] .ht-wa__link:focus-visible .ht-wa__btn {
+    outline: 3px solid #111827;
+    outline-offset: 3px;
+  }
+
+  /* Main Button */
+  [id^="ht-wa-"] .ht-wa__btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--ht-wa-size, 56px);
+    height: var(--ht-wa-size, 56px);
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: var(--ht-wa-radius, 50%);
+    background-color: var(--ht-wa-bg, #25D366);
+    color: var(--ht-wa-icon, #ffffff);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    flex-shrink: 0;
+  }
+
+  [id^="ht-wa-"].ht-wa[data-shadow="true"] .ht-wa__btn {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.1);
+  }
+
+  [id^="ht-wa-"] .ht-wa__link:hover .ht-wa__btn {
+    transform: scale(1.05);
+  }
+
+  [id^="ht-wa-"] .ht-wa__icon {
+    width: calc(var(--ht-wa-size, 56px) * 0.54);
+    height: calc(var(--ht-wa-size, 56px) * 0.54);
+    display: block;
+    pointer-events: none;
+  }
+
+  /* Pulse Ring */
+  [id^="ht-wa-"].ht-wa[data-pulse="true"] .ht-wa__btn::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background-color: var(--ht-wa-bg, #25D366);
+    z-index: -1;
+    opacity: 0.6;
+    animation: ht-wa-pulse 2.2s cubic-bezier(0.24, 0, 0.38, 1) infinite;
+    pointer-events: none;
+  }
+
+  @keyframes ht-wa-pulse {
+    0% {
+      transform: scale(1);
+      opacity: 0.55;
+    }
+    75%,
+    100% {
+      transform: scale(1.42);
+      opacity: 0;
+    }
+  }
+
+  /* Online Dot */
+  [id^="ht-wa-"] .ht-wa__dot {
+    position: absolute;
+    top: 2px;
+    inset-inline-end: 2px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: #22c55e;
+    border: 2px solid #ffffff;
+    box-sizing: border-box;
+    pointer-events: none;
+  }
+
+  /* Tooltip Bubble */
+  [id^="ht-wa-"] .ht-wa__tooltip {
+    position: absolute;
+    top: 50%;
+    inset-inline-end: calc(100% + 12px);
+    max-width: 220px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    background-color: #ffffff;
+    color: #1f2937;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.35;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    transform: translateY(-50%);
+    transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s;
+  }
+
+  [id^="ht-wa-"].ht-wa[data-position="left"] .ht-wa__tooltip {
+    inset-inline-end: auto;
+    inset-inline-start: calc(100% + 12px);
+  }
+
+  /* Tooltip Visibility Modes */
+  [id^="ht-wa-"].ht-wa[data-tooltip-mode="always"] .ht-wa__tooltip {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  [id^="ht-wa-"].ht-wa[data-tooltip-mode="hover"] .ht-wa__tooltip,
+  [id^="ht-wa-"].ht-wa[data-tooltip-mode="once"] .ht-wa__tooltip {
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(calc(-50% + 4px));
+    pointer-events: none;
+  }
+
+  [id^="ht-wa-"].ht-wa[data-tooltip-mode="hover"] .ht-wa__link:hover .ht-wa__tooltip,
+  [id^="ht-wa-"].ht-wa[data-tooltip-mode="hover"] .ht-wa__link:focus-visible .ht-wa__tooltip,
+  [id^="ht-wa-"].ht-wa[data-tooltip-mode="once"] .ht-wa__link:hover .ht-wa__tooltip,
+  [id^="ht-wa-"].ht-wa[data-tooltip-mode="once"] .ht-wa__link:focus-visible .ht-wa__tooltip,
+  [id^="ht-wa-"].ht-wa[data-tooltip-mode="once"] .ht-wa__tooltip.is-visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(-50%);
+    pointer-events: auto;
+  }
+
+  /* Theme Editor Placeholder */
+  [id^="ht-wa-"].ht-wa--placeholder {
+    pointer-events: auto;
+  }
+
+  [id^="ht-wa-"] .ht-wa__placeholder-box {
+    max-width: 260px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background-color: #111827;
+    color: #ffffff;
+    font-size: 13px;
+    line-height: 1.4;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    border: 1px dashed #25D366;
+  }
+
+  /* Reduced Motion Preference */
+  @media (prefers-reduced-motion: reduce) {
+    [id^="ht-wa-"].ht-wa,
+    [id^="ht-wa-"].ht-wa[data-ready="true"],
+    [id^="ht-wa-"] .ht-wa__btn {
+      transition-duration: 0.01ms !important;
+      transform: none !important;
+    }
+
+    [id^="ht-wa-"] .ht-wa__tooltip {
+      transition-duration: 0.01ms !important;
+      transform: translateY(-50%) !important;
+    }
+
+    [id^="ht-wa-"].ht-wa[data-pulse="true"] .ht-wa__btn::before {
+      animation: none !important;
+      display: none !important;
+    }
+
+    [id^="ht-wa-"] .ht-wa__link:hover .ht-wa__btn {
+      transform: none !important;
+    }
+  }
+{% endstylesheet %}
+
+{% javascript %}
+  (function () {
+    function initWhatsAppButton(container) {
+      if (!container || container.dataset.htWaInitialized === 'true') return;
+      container.dataset.htWaInitialized = 'true';
+
+      var sectionId = container.getAttribute('data-ht-wa-section') || '';
+      var delaySeconds = parseInt(container.getAttribute('data-delay') || '0', 10);
+      var tooltipMode = container.getAttribute('data-tooltip-mode') || 'none';
+      var tooltipDuration = parseInt(container.getAttribute('data-tooltip-duration') || '6', 10);
+      var tooltip = container.querySelector('[data-ht-wa-tooltip]');
+      var link = container.querySelector('.ht-wa__link');
+
+      function handleTooltipOnce() {
+        if (!tooltip || tooltipMode !== 'once') return;
+        var storageKey = 'ht_wa_tooltip_seen_' + sectionId;
+        var alreadySeen = false;
+
+        try {
+          alreadySeen = window.sessionStorage.getItem(storageKey) === '1';
+        } catch (e) {
+          alreadySeen = false;
+        }
+
+        if (alreadySeen && !(window.Shopify && window.Shopify.designMode)) return;
+
+        tooltip.classList.add('is-visible');
+
+        try {
+          window.sessionStorage.setItem(storageKey, '1');
+        } catch (e) {
+          // Ignore storage errors in private browsing
+        }
+
+        window.setTimeout(function () {
+          tooltip.classList.remove('is-visible');
+        }, Math.max(1, tooltipDuration) * 1000);
+      }
+
+      function revealButton() {
+        container.setAttribute('data-ready', 'true');
+        handleTooltipOnce();
+      }
+
+      if (delaySeconds > 0) {
+        window.setTimeout(revealButton, delaySeconds * 1000);
+      } else {
+        window.requestAnimationFrame(function () {
+          window.requestAnimationFrame(revealButton);
+        });
+      }
+
+      if (link) {
+        link.addEventListener('click', function () {
+          try {
+            var href = link.getAttribute('href') || '';
+            var eventDetail = {
+              sectionId: sectionId,
+              href: href,
+              pageUrl: window.location.href
+            };
+
+            document.dispatchEvent(
+              new CustomEvent('ht:whatsapp-click', {
+                bubbles: true,
+                detail: eventDetail
+              })
+            );
+
+            if (window.dataLayer && typeof window.dataLayer.push === 'function') {
+              window.dataLayer.push({
+                event: 'whatsapp_click'
+              });
+            }
+          } catch (err) {
+            // Never block navigation if analytics fail
+          }
+        });
+      }
+    }
+
+    function initAllWhatsAppButtons(root) {
+      var scope = root || document;
+      var containers = scope.querySelectorAll('[data-ht-wa-section]');
+      for (var i = 0; i < containers.length; i++) {
+        initWhatsAppButton(containers[i]);
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function () {
+        initAllWhatsAppButtons(document);
+      });
+    } else {
+      initAllWhatsAppButtons(document);
+    }
+
+    document.addEventListener('shopify:section:load', function (event) {
+      initAllWhatsAppButtons(event.target);
+    });
+  })();
+{% endjavascript %}
+
+{% schema %}
+{
+  "name": "HT - WhatsApp Chat Button",
+  "tag": "section",
+  "class": "section-ht-whatsapp-chat",
+  "settings": [
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "text",
+      "id": "phone_number",
+      "label": "WhatsApp phone number",
+      "info": "Include country code (e.g. +91 98765 43210). Plus signs, spaces, dashes, and parentheses are stripped automatically."
+    },
+    {
+      "type": "text",
+      "id": "default_country_code",
+      "label": "Default country code",
+      "default": "91",
+      "info": "Added automatically when the number has 10 digits and no country code. Leave blank to disable."
+    },
+    {
+      "type": "textarea",
+      "id": "prefill_message",
+      "label": "Pre-filled message (product pages)",
+      "default": "Hi! I have a question about {product_title} ({page_url})",
+      "info": "Used on product pages. Supported placeholders: {product_title}, {product_url}, {page_url}."
+    },
+    {
+      "type": "textarea",
+      "id": "general_message",
+      "label": "Pre-filled message (non-product pages)",
+      "default": "Hi! I need some help.",
+      "info": "Used on home, collection, cart and other pages. Supports {page_url}."
+    },
+    {
+      "type": "text",
+      "id": "tooltip_text",
+      "label": "Tooltip label text",
+      "default": "Chat with us",
+      "info": "Leave blank to hide the tooltip bubble."
+    },
+    {
+      "type": "select",
+      "id": "tooltip_behavior",
+      "label": "Tooltip display behavior",
+      "default": "once",
+      "options": [
+        {
+          "value": "always",
+          "label": "Show always"
+        },
+        {
+          "value": "hover",
+          "label": "Show on hover / focus"
+        },
+        {
+          "value": "once",
+          "label": "Auto-show once, then hide"
+        },
+        {
+          "value": "none",
+          "label": "Hidden"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "tooltip_auto_hide_seconds",
+      "label": "Tooltip auto-hide after",
+      "min": 2,
+      "max": 15,
+      "step": 1,
+      "unit": "s",
+      "default": 6,
+      "info": "Applies when tooltip behavior is set to 'Auto-show once, then hide'."
+    },
+    {
+      "type": "text",
+      "id": "aria_label",
+      "label": "Accessibility label (aria-label)",
+      "default": "Chat with us on WhatsApp",
+      "info": "Announced by screen readers."
+    },
+    {
+      "type": "header",
+      "content": "Position"
+    },
+    {
+      "type": "select",
+      "id": "position",
+      "label": "Horizontal alignment",
+      "default": "right",
+      "options": [
+        {
+          "value": "right",
+          "label": "Right (inline-end in RTL)"
+        },
+        {
+          "value": "left",
+          "label": "Left (inline-start in RTL)"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "bottom_offset_desktop",
+      "label": "Bottom offset (desktop)",
+      "min": 8,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "range",
+      "id": "side_offset_desktop",
+      "label": "Side offset (desktop)",
+      "min": 8,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "range",
+      "id": "bottom_offset_mobile",
+      "label": "Bottom offset (mobile)",
+      "min": 8,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "side_offset_mobile",
+      "label": "Side offset (mobile)",
+      "min": 8,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "number",
+      "id": "z_index",
+      "label": "Z-index",
+      "default": 999,
+      "info": "Controls stacking order above other floating theme elements."
+    },
+    {
+      "type": "header",
+      "content": "Style"
+    },
+    {
+      "type": "range",
+      "id": "button_size",
+      "label": "Button size",
+      "min": 44,
+      "max": 80,
+      "step": 2,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "select",
+      "id": "button_shape",
+      "label": "Button shape",
+      "default": "circle",
+      "options": [
+        {
+          "value": "circle",
+          "label": "Circle"
+        },
+        {
+          "value": "rounded_square",
+          "label": "Rounded square"
+        }
+      ]
+    },
+    {
+      "type": "color",
+      "id": "bg_color",
+      "label": "Background color",
+      "default": "#25D366"
+    },
+    {
+      "type": "color",
+      "id": "icon_color",
+      "label": "Icon color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_shadow",
+      "label": "Show drop shadow",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_online_dot",
+      "label": "Show green 'online' status dot",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Animation"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_pulse",
+      "label": "Enable pulse ring animation",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_entrance",
+      "label": "Enable slide/fade entrance animation",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "appear_delay",
+      "label": "Delay before button appears",
+      "min": 0,
+      "max": 10,
+      "step": 1,
+      "unit": "s",
+      "default": 0
+    },
+    {
+      "type": "header",
+      "content": "Visibility"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_on_desktop",
+      "label": "Show on desktop (750px and up)",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_on_mobile",
+      "label": "Show on mobile (under 750px)",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "hide_on_home",
+      "label": "Hide on home page",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "hide_on_product",
+      "label": "Hide on product pages",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "hide_on_collection",
+      "label": "Hide on collection pages",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "hide_on_cart",
+      "label": "Hide on cart page",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "hide_on_blog",
+      "label": "Hide on blog and article pages",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "hide_on_page",
+      "label": "Hide on standard pages",
+      "default": false
+    }
+  ],
+  "presets": [
+    {
+      "name": "HT - WhatsApp Chat Button"
+    }
+  ]
+}
+{% endschema %}
